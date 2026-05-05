@@ -147,6 +147,13 @@ def main():
     print(f"  Device: {device}")
     print("=" * 100)
 
+    if not EVENT_INFO.exists() or not SCALER_CSV.exists():
+        print("\n  [!] ERROR: Required dataset files are missing.")
+        print("  This repository contains the model architecture and weights, but")
+        print("  the raw SCADA datasets are proprietary and not included publicly.")
+        print("  Please provide the required data in the 'data/' folder to run the pipeline.\n")
+        return
+
     ei = pd.read_csv(EVENT_INFO, sep=';')
     ei['event_start'] = pd.to_datetime(ei['event_start'], format='mixed')
     ei['event_end'] = pd.to_datetime(ei['event_end'], format='mixed')

@@ -108,7 +108,11 @@ def extract_window_features(df_sl, tc, ba, bc, na, nc):
         np.mean(w),np.std(w),np.max(w) if len(w)>0 else 0,np.mean(p),np.mean(w>12.0)]
 
 # Load everything
-ei = pd.read_csv(EI_PATH, sep=';')
+try:
+    ei = pd.read_csv(EI_PATH, sep=';')
+except FileNotFoundError:
+    print("\n[!] ERROR: Proprietary datasets (data/) are missing. Forensic Audit requires full dataset to run.")
+    sys.exit(1)
 ei['event_start'] = pd.to_datetime(ei['event_start'], format='mixed')
 ei['event_end'] = pd.to_datetime(ei['event_end'], format='mixed')
 sc = pd.read_csv(SC_PATH).set_index('column').to_dict('index')

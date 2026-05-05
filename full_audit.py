@@ -11,7 +11,11 @@ sys.stdout.reconfigure(encoding='utf-8')
 import warnings; warnings.filterwarnings('ignore')
 
 ROOT = Path(__file__).parent.resolve()
-SC = pd.read_csv(ROOT/'data'/'scaler_params.csv').set_index('column').to_dict('index')
+try:
+    SC = pd.read_csv(ROOT/'data'/'scaler_params.csv').set_index('column').to_dict('index')
+except FileNotFoundError:
+    print("\n[!] ERROR: Proprietary datasets (data/) are missing. Audit requires full dataset to run.")
+    sys.exit(1)
 EI = pd.read_csv(ROOT/'data'/'event_info.csv', sep=';')
 EI['event_start'] = pd.to_datetime(EI['event_start'], format='mixed')
 EI['event_end'] = pd.to_datetime(EI['event_end'], format='mixed')
