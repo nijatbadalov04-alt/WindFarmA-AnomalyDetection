@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wind Farm A — PGNN Anomaly Detection Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--bg2:#111827;--bg3:#1a2035;--bg4:#232d45;
+  --accent:#3b82f6;--accent2:#06b6d4;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--purple:#8b5cf6;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --glow:0 0 30px rgba(59,130,246,.15);
+  --card-border:1px solid rgba(255,255,255,.06);
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+.topbar{background:linear-gradient(135deg,#0f172a,#1e293b);border-bottom:1px solid rgba(255,255,255,.08);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px)}
+.topbar h1{font-size:20px;font-weight:700;background:linear-gradient(135deg,#60a5fa,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar .status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--green)}
+.topbar .status::before{content:'';width:8px;height:8px;background:var(--green);border-radius:50%;box-shadow:0 0 12px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.grid{display:grid;gap:20px;padding:24px 32px;max-width:1600px;margin:0 auto}
+.row-top{grid-template-columns:repeat(4,1fr)}
+.row-mid{grid-template-columns:1fr 1fr}
+.row-turb{grid-template-columns:repeat(5,1fr)}
+.row-det{grid-template-columns:1fr}
+.card{background:var(--bg2);border:var(--card-border);border-radius:16px;padding:24px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+.card:hover{transform:translateY(-2px);box-shadow:var(--glow)}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5}
+.card h3{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin-bottom:12px;font-weight:600}
+.metric{font-size:42px;font-weight:800;line-height:1}
+.metric.green{color:var(--green)}
+.metric.blue{color:var(--accent)}
+.metric.cyan{color:var(--accent2)}
+.metric.orange{color:var(--orange)}
+.metric-sub{font-size:13px;color:var(--text2);margin-top:6px}
+.section-title{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--text3);padding:8px 32px 0;font-weight:700}
+/* Turbine Cards */
+.turb-card{text-align:center;cursor:pointer}
+.turb-card .turb-icon{width:64px;height:64px;margin:0 auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;transition:all .3s}
+.turb-card.ok .turb-icon{background:rgba(16,185,129,.12);border:2px solid rgba(16,185,129,.3);color:var(--green)}
+.turb-card .turb-name{font-weight:700;font-size:15px;margin-bottom:4px}
+.turb-card .turb-events{font-size:12px;color:var(--text2)}
+.turb-card .turb-stat{display:flex;justify-content:center;gap:16px;margin-top:10px;font-size:11px}
+.turb-card .turb-stat span{padding:4px 10px;border-radius:8px;font-weight:600}
+.turb-card .turb-stat .tp{background:rgba(16,185,129,.12);color:var(--green)}
+.turb-card .turb-stat .fp{background:rgba(239,68,68,.12);color:var(--red)}
+/* Detection Table */
+.det-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.det-table thead th{text-align:left;padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);border-bottom:1px solid rgba(255,255,255,.06);font-weight:600}
+.det-table tbody tr{transition:background .15s}
+.det-table tbody tr:hover{background:rgba(59,130,246,.06)}
+.det-table td{padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.03)}
+.badge{padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;display:inline-block}
+.badge-match{background:rgba(16,185,129,.15);color:var(--green)}
+.badge-coupled{background:rgba(139,92,246,.15);color:var(--purple)}
+.badge-gearbox{background:rgba(59,130,246,.12);color:#60a5fa}
+.badge-hydraulic{background:rgba(6,182,212,.12);color:#22d3ee}
+.badge-transformer{background:rgba(245,158,11,.12);color:#fbbf24}
+.badge-generator{background:rgba(239,68,68,.12);color:#f87171}
+.prob-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.06);width:100px;display:inline-block;vertical-align:middle;margin-left:6px;overflow:hidden}
+.prob-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--green),var(--accent2))}
+/* Lead chart */
+.lead-chart{display:flex;align-items:flex-end;gap:6px;height:120px;padding:12px 0}
+.lead-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.lead-bar{width:100%;border-radius:4px 4px 0 0;transition:height .6s ease;position:relative;min-width:20px}
+.lead-bar::after{content:attr(data-days);position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text2);font-weight:600;white-space:nowrap}
+.lead-label{font-size:9px;color:var(--text3);writing-mode:vertical-rl;text-orientation:mixed;max-height:50px;overflow:hidden;font-weight:500}
+/* Model cards */
+.model-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+.model-card{background:var(--bg3);border-radius:10px;padding:14px;text-align:center}
+.model-card .m-name{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.model-card .m-thresh{font-size:22px;font-weight:800}
+.model-card .m-r2{font-size:11px;color:var(--text2);margin-top:4px}
+/* Arch diagram */
+.arch{display:flex;align-items:center;gap:0;justify-content:center;flex-wrap:wrap;padding:12px 0}
+.arch-node{padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;text-align:center;min-width:120px}
+.arch-arrow{font-size:18px;color:var(--text3);padding:0 8px}
+.arch .a1{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);color:#93c5fd}
+.arch .a2{background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.25);color:#67e8f9}
+.arch .a3{background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.25);color:#c4b5fd}
+.arch .a4{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);color:#6ee7b7}
+@media(max-width:1100px){.row-top{grid-template-columns:repeat(2,1fr)}.row-turb{grid-template-columns:repeat(3,1fr)}.row-mid{grid-template-columns:1fr}}
+@media(max-width:700px){.row-top,.row-turb,.row-mid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>WIND FARM A &mdash; PGNN ANOMALY DETECTION</h1>
+  <div class="status">System Operational &bull; 12/12 Detected</div>
+</div>
+
+<!-- KPIs -->
+<div class="grid row-top">
+  <div class="card"><h3>True Positives</h3><div class="metric green">12/12</div><div class="metric-sub">100% Recall &bull; All faults detected</div></div>
+  <div class="card"><h3>False Positives</h3><div class="metric green">0</div><div class="metric-sub">Zero false alarms across fleet</div></div>
+  <div class="card"><h3>Mean Lead Time</h3><div class="metric cyan">54d</div><div class="metric-sub">Range: 17 &ndash; 66 days before failure</div></div>
+  <div class="card"><h3>Detection Confidence</h3><div class="metric blue">93%</div><div class="metric-sub">Average P(fault) at first alarm</div></div>
+</div>
+
+<!-- Architecture -->
+<p class="section-title" style="margin-top:8px">Pipeline Architecture</p>
+<div class="grid" style="padding-top:8px"><div class="card">
+  <div class="arch">
+    <div class="arch-node a1">SCADA Sensors<br><small>10-min, 9 thermal</small></div><span class="arch-arrow">&#x2192;</span>
+    <div class="arch-node a2">ARMAX NBM<br><small>Global &theta; (160K samples)</small></div><span class="arch-arrow">&#x2192;</span>
+    <div class="arch-node a1">&Delta;&theta; Drift<br><small>36 + 8 + 5 = 49 features</small></div><span class="arch-arrow">&#x2192;</span>
+    <div class="arch-node a3">PGNN Classifier<br><small>512&rarr;256&rarr;128&rarr;64 GPU</small></div><span class="arch-arrow">&#x2192;</span>
+    <div class="arch-node a4">Detection<br><small>12 TP &bull; 0 FP</small></div>
+  </div>
+  <div class="model-row">
+    <div class="model-card"><div class="m-name" style="color:#60a5fa">Gearbox</div><div class="m-thresh" style="color:#60a5fa">0.65</div><div class="m-r2">R&sup2; = 0.9865 &bull; sensor_12</div></div>
+    <div class="model-card"><div class="m-name" style="color:#fbbf24">Transformer</div><div class="m-thresh" style="color:#fbbf24">0.75</div><div class="m-r2">R&sup2; = 0.9967 &bull; sensor_38</div></div>
+    <div class="model-card"><div class="m-name" style="color:#22d3ee">Hydraulic</div><div class="m-thresh" style="color:#22d3ee">0.73</div><div class="m-r2">R&sup2; = 0.9932 &bull; sensor_41</div></div>
+    <div class="model-card"><div class="m-name" style="color:#f87171">Generator</div><div class="m-thresh" style="color:#f87171">0.69</div><div class="m-r2">R&sup2; = 0.9966 &bull; sensor_14</div></div>
+  </div>
+</div></div>
+
+<!-- Turbines -->
+<p class="section-title">Fleet Overview &mdash; 5 Turbines</p>
+<div class="grid row-turb" id="turbGrid"></div>
+
+<!-- Lead Time Chart + Detection Log -->
+<p class="section-title">Detections</p>
+<div class="grid row-mid">
+  <div class="card"><h3>Lead Time Distribution (days before failure)</h3><div class="lead-chart" id="leadChart"></div></div>
+  <div class="card"><h3>Detection by Subsystem</h3>
+    <div style="display:flex;gap:20px;margin-top:12px;flex-wrap:wrap" id="pieArea"></div>
+  </div>
+</div>
+
+<!-- Detection Table -->
+<div class="grid row-det">
+  <div class="card" style="padding:16px"><h3 style="padding:8px 8px 0">All 12 Detections</h3>
+    <table class="det-table"><thead><tr>
+      <th>Event</th><th>Asset</th><th>Fault Type</th><th>Detecting Model</th><th>Lead Time</th><th>Confidence</th><th>Match</th>
+    </tr></thead><tbody id="detBody"></tbody></table>
+  </div>
+</div>
+
+<div style="text-align:center;padding:32px;color:var(--text3);font-size:11px">
+  Wind Farm A &mdash; MIMO ARMAX + Physics-Guided Neural Network &bull; Global &theta; from 5 turbines &bull; GPU-Accelerated PyTorch
+</div>
+
+<script>
+const detections = [
+  {ev:0,asset:0,fault:'generator',model:'gearbox',lead:55.8,prob:.981,match:'COUPLED'},
+  {ev:73,asset:0,fault:'hydraulic',model:'hydraulic',lead:50.5,prob:.969,match:'MATCH'},
+  {ev:26,asset:0,fault:'hydraulic',model:'hydraulic',lead:60.8,prob:.982,match:'MATCH'},
+  {ev:10,asset:10,fault:'gearbox',model:'hydraulic',lead:61.2,prob:1.0,match:'COUPLED'},
+  {ev:40,asset:10,fault:'generator',model:'transformer',lead:57.5,prob:.894,match:'COUPLED'},
+  {ev:42,asset:10,fault:'hydraulic',model:'hydraulic',lead:65.5,prob:1.0,match:'MATCH'},
+  {ev:68,asset:11,fault:'transformer',model:'transformer',lead:66.0,prob:.756,match:'MATCH'},
+  {ev:45,asset:13,fault:'hydraulic',model:'hydraulic',lead:17.5,prob:.826,match:'MATCH'},
+  {ev:84,asset:13,fault:'hydraulic',model:'hydraulic',lead:36.1,prob:.791,match:'MATCH'},
+  {ev:72,asset:21,fault:'gearbox',model:'gearbox',lead:58.3,prob:.968,match:'MATCH'},
+  {ev:51,asset:21,fault:'gearbox',model:'gearbox',lead:54.0,prob:.968,match:'MATCH'},
+  {ev:22,asset:21,fault:'hydraulic',model:'hydraulic',lead:59.9,prob:.999,match:'MATCH'},
+];
+const turbines = [
+  {id:0,name:'Turbine A0',events:3,faults:['Gen Bearing','Hydraulic','Hydraulic']},
+  {id:10,name:'Turbine A10',events:3,faults:['Gen Bearing','Hydraulic','Gearbox']},
+  {id:11,name:'Turbine A11',events:1,faults:['Transformer']},
+  {id:13,name:'Turbine A13',events:2,faults:['Hydraulic','Hydraulic']},
+  {id:21,name:'Turbine A21',events:3,faults:['Hydraulic','Gearbox','Gearbox']},
+];
+
+// Turbine cards
+const tg=document.getElementById('turbGrid');
+turbines.forEach(t=>{
+  const tp=detections.filter(d=>d.asset===t.id).length;
+  tg.innerHTML+=`<div class="card turb-card ok">
+    <div class="turb-icon">A${t.id}</div>
+    <div class="turb-name">${t.name}</div>
+    <div class="turb-events">${t.events} anomaly events &bull; ${t.faults.join(', ')}</div>
+    <div class="turb-stat"><span class="tp">${tp} TP</span><span class="fp">0 FP</span></div>
+  </div>`;
+});
+
+// Detection table
+const tb=document.getElementById('detBody');
+detections.sort((a,b)=>a.lead-b.lead).forEach(d=>{
+  const fc=`badge-${d.fault}`,mc=d.match==='MATCH'?'badge-match':'badge-coupled';
+  const pw=Math.round(d.prob*100);
+  tb.innerHTML+=`<tr>
+    <td style="font-weight:700">Ev${d.ev}</td>
+    <td>A${d.asset}</td>
+    <td><span class="badge ${fc}">${d.fault}</span></td>
+    <td><span class="badge ${fc}">${d.model}</span></td>
+    <td style="font-weight:600">${d.lead.toFixed(0)}d</td>
+    <td>${pw}%<span class="prob-bar"><span class="prob-fill" style="width:${pw}%"></span></span></td>
+    <td><span class="badge ${mc}">${d.match}</span></td>
+  </tr>`;
+});
+
+// Lead chart
+const lc=document.getElementById('leadChart');
+const maxLead=70;
+detections.sort((a,b)=>a.lead-b.lead).forEach(d=>{
+  const h=Math.max(10,(d.lead/maxLead)*110);
+  const hue=d.lead<30?0:d.lead<50?45:140;
+  lc.innerHTML+=`<div class="lead-bar-wrap">
+    <div class="lead-bar" style="height:${h}px;background:hsl(${hue},70%,50%,0.7)" data-days="${d.lead.toFixed(0)}d"></div>
+    <div class="lead-label">Ev${d.ev}</div>
+  </div>`;
+});
+
+// Subsystem breakdown
+const pa=document.getElementById('pieArea');
+const counts={hydraulic:0,gearbox:0,transformer:0,generator:0};
+detections.forEach(d=>counts[d.fault]++);
+const colors={hydraulic:'#22d3ee',gearbox:'#60a5fa',transformer:'#fbbf24',generator:'#f87171'};
+const matchCount=detections.filter(d=>d.match==='MATCH').length;
+const coupCount=detections.filter(d=>d.match==='COUPLED').length;
+
+pa.innerHTML=`<div style="flex:1">
+  <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text2)">By Fault Type</div>
+  ${Object.entries(counts).map(([k,v])=>{
+    const pct=Math.round(v/12*100);
+    return `<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+      <span style="color:${colors[k]};font-weight:600;text-transform:capitalize">${k}</span><span style="color:var(--text3)">${v} events (${pct}%)</span></div>
+      <div style="height:6px;background:var(--bg4);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${colors[k]};border-radius:3px"></div></div></div>`;
+  }).join('')}
+</div>
+<div style="flex:1">
+  <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text2)">Detection Type</div>
+  <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px">
+    <div style="text-align:center;flex:1;padding:16px;background:var(--bg3);border-radius:10px">
+      <div style="font-size:28px;font-weight:800;color:var(--green)">${matchCount}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px">MATCH</div>
+      <div style="font-size:10px;color:var(--text3)">Correct subsystem</div>
+    </div>
+    <div style="text-align:center;flex:1;padding:16px;background:var(--bg3);border-radius:10px">
+      <div style="font-size:28px;font-weight:800;color:var(--purple)">${coupCount}</div>
+      <div style="font-size:11px;color:var(--text2)">COUPLED</div>
+      <div style="font-size:10px;color:var(--text3)">Cross-subsystem</div>
+    </div>
+  </div>
+  <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text2)">By Detecting Model</div>
+  ${['hydraulic','gearbox','transformer'].map(m=>{
+    const c=detections.filter(d=>d.model===m).length;
+    const pct=Math.round(c/12*100);
+    return `<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+      <span style="color:${colors[m]};font-weight:600;text-transform:capitalize">${m} model</span><span style="color:var(--text3)">${c} detections</span></div>
+      <div style="height:6px;background:var(--bg4);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${colors[m]};border-radius:3px"></div></div></div>`;
+  }).join('')}
+</div>`;
+</script>
+</body>
+</html>
